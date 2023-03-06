@@ -1,5 +1,7 @@
-use chrono::Utc;
+use chrono::{FixedOffset, Local, NaiveDate, NaiveTime, TimeZone, Utc};
 use icalendar::{Calendar, Component, Event, EventLike};
+
+const DEFAULT_MINCHA_DURATION: u32 = 20;
 
 enum Time {
     Fixed(u32),      // Minute of the day
@@ -7,7 +9,7 @@ enum Time {
 }
 
 struct Schedule {
-    tz: TimeZone,
+    tz: i32,
     time: Time,
     prep_time: u32, // In minutes
 }
@@ -15,7 +17,16 @@ struct Schedule {
 fn make_cal(sch: &Schedule) -> Calendar {
     let events = match sch.time {
         Time::Fixed(n) => {
-            let start_time = Utc::today(sch.tz).add_minutes(n);
+            let start_time = Local::now()
+                .date_naive()
+                .and_time(
+                    NaiveTime::from_num_seconds_from_midnight_opt(n * 60, 0)
+                        .expect("Bad number of seconds since midnight"),
+                )
+                .and_local_timezone(
+                    FixedOffset::east_opt(sch.tz * 100).expect("Invalid tz offset"),
+                );
+
             // Extract common event params, like summary
             let evt = Event::new()
                 .summary("Mincha")
