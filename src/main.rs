@@ -201,6 +201,6 @@ fn main() {
 
     let cal = Calendar::from(sch);
 
-    println!("{}", cal);
+    println!("{cal}");
 }
 // @TODO replace expcts with result bubbling
