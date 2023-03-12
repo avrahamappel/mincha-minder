@@ -51,9 +51,14 @@ struct MinchaTime<'sch> {
 
 fn current_time() -> DateTime<Utc> {
     // Hack for test
-    // @TODO write test that matches mincha.ics
+    // @TODO instead of doing this, should be a date field in Schedule
+    // Might be able to iterate over duration when creating events
+    // Can then pass arbitrary dates for tests
     if cfg!(test) {
-        return Utc.with_ymd_and_hms(2023, 3, 9, 11, 52, 0);
+        return Utc
+            .with_ymd_and_hms(2023, 3, 10, 12, 0, 0)
+            .single()
+            .unwrap();
     }
 
     Utc::now()
@@ -123,6 +128,67 @@ impl From<Schedule> for Calendar {
         }
 
         cal
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use icalendar::{CalendarComponent, DatePerhapsTime};
+
+    use super::*;
+
+    // Helper function to build a date quickly
+    #[allow(clippy::needless_pass_by_value)]
+    fn date2utc(
+        tz: impl TimeZone,
+        y: i32,
+        mo: u32,
+        d: u32,
+        h: u32,
+        min: u32,
+        s: u32,
+    ) -> DatePerhapsTime {
+        DatePerhapsTime::from(
+            tz.with_ymd_and_hms(y, mo, d, h, min, s)
+                .unwrap()
+                .with_timezone(&Utc),
+        )
+    }
+
+    #[test]
+    fn generates_events_for_correct_times() {
+        let sch = Schedule {
+            lat_long: LatLong::new(43.73, -79.44), // North York, Ontario
+            minutes: 40,                           // 40 minutes after shkiyah in Bobov
+            prep_time: 5,
+        };
+        let tz = Tz::named("America/Toronto").unwrap();
+
+        let cal = Calendar::from(sch);
+        let first_event = cal.iter().find_map(CalendarComponent::as_event).unwrap();
+        let last_event = cal
+            .iter()
+            .filter_map(CalendarComponent::as_event)
+            .last()
+            .unwrap();
+
+        assert_eq!("Mincha", first_event.get_summary().unwrap());
+        assert_eq!(
+            date2utc(&tz, 2023, 3, 10, 18, 56, 56),
+            first_event.get_start().unwrap()
+        );
+        assert_eq!(
+            date2utc(&tz, 2023, 3, 10, 19, 16, 56),
+            first_event.get_end().unwrap()
+        );
+        assert_eq!(
+            date2utc(&tz, 2023, 6, 7, 21, 36, 46),
+            last_event.get_start().unwrap()
+        );
+        assert_eq!(
+            date2utc(&tz, 2023, 6, 7, 21, 56, 46),
+            last_event.get_end().unwrap()
+        );
     }
 }
 
