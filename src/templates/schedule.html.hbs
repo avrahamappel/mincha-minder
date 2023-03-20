@@ -1,0 +1,46 @@
+#if id
+<h1>Mincha Reminder #{{ id }}</h1>
+#else
+<h1>New Mincha Reminder</h1>
+#end
+
+<form action="{{ action }}" method="POST">
+
+    #if id
+    <input type="hidden" name="_method" value="PUT" />
+    #end
+
+    <h3>Location</h3>
+
+    <label for="lat">Latitude</label>
+    <input type="number" name="lat" value="{{ lat }}"/>
+
+    <label for="long">Longitude</label>
+    <input type="number" name="long" value="{{ long }}">
+
+    <h3>Your Mincha Schedule</h3>
+
+    <label for="minutes_abs">Minutes</label>
+    <input type="number" name="minutes_abs" value="{{ minutes_abs }}" />
+
+    <label for="before_after">Before / After Sunset</label>
+    <label>
+        <input type="radio" name="before_after" value="before" />
+        Before
+    </label>
+    <label>
+        <input type="radio" name="before_after" value="after">
+        After
+    </label>
+
+    <label for="prep_time">Preparation Time (minutes)</label>
+    <input type="number" name="prep_time">
+
+    <button type="submit">Save</button>
+</form>
+
+#if id
+<h3>Calendar feed</h3>
+
+<button>Add to Google calendar</button>
+#end

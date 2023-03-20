@@ -137,7 +137,7 @@ mod tests {
 
     use super::*;
 
-    // Helper function to build a date quickly
+    /// Helper function to build a date quickly
     #[allow(clippy::needless_pass_by_value)]
     fn date2utc(
         tz: impl TimeZone,
