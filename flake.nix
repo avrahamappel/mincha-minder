@@ -20,7 +20,7 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.rust-analyzer
+            pkgs.libiconv
             rust
           ];
         };
