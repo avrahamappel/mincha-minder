@@ -12,21 +12,17 @@
       let
         overlays = [ (import rust-overlay) ];
 
-        pkgs = import nixpkgs { inherit system; };
-        pkgs' = import rust-overlay.inputs.nixpkgs { inherit system overlays; };
+        pkgs = import rust-overlay.inputs.nixpkgs { inherit system overlays; };
 
-        rust = pkgs'.rust-bin.stable.latest.default.override {
+        rust = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.elmPackages.elm
-            pkgs.elmPackages.elm-format
-            pkgs.elmPackages.elm-language-server
-            pkgs'.libiconv
-            pkgs'.rust-analyzer
+            pkgs.libiconv
+            pkgs.rust-analyzer
             rust
           ];
         };
