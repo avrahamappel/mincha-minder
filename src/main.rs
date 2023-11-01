@@ -1,6 +1,5 @@
 use icalendar::Calendar;
 
-// mod caldav;
 mod mincha_minder;
 use mincha_minder::Schedule;
 
