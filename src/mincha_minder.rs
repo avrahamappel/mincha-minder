@@ -121,12 +121,16 @@ impl Schedule {
             prep_time,
         }
     }
+
+    pub fn to_ical(&self) -> String {
+        Calendar::from(self).to_string()
+    }
 }
 
-impl From<Schedule> for Calendar {
-    fn from(sch: Schedule) -> Self {
+impl From<&Schedule> for Calendar {
+    fn from(sch: &Schedule) -> Self {
         let evts_iter = (0..90)
-            .map(|n| MinchaTime::new(&sch, n))
+            .map(|n| MinchaTime::new(sch, n))
             // @todo exclude Friday and Shabbos
             // .filter(|mt| ![Friday, Saturday].contains(mt.time.day))
             .map(Event::from);
@@ -174,7 +178,7 @@ mod tests {
         };
         let tz = Tz::named("America/Toronto").unwrap();
 
-        let cal = Calendar::from(sch);
+        let cal = Calendar::from(&sch);
         let first_event = cal.iter().find_map(CalendarComponent::as_event).unwrap();
         let last_event = cal
             .iter()
