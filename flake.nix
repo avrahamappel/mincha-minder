@@ -2,29 +2,31 @@
   description = "Mincha Minder: generate a calendar of your mincha events";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.url = "github:numtide/flake-utils";
+    cargo2nix.url = "github:cargo2nix/cargo2nix/release-0.11.0";
+    flake-utils.follows = "cargo2nix/flake-utils";
+    nixpkgs.follows = "cargo2nix/nixpkgs";
   };
 
-  outputs = { nixpkgs, rust-overlay, flake-utils, ... }:
+  outputs = { nixpkgs, cargo2nix, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [ (import rust-overlay) ];
+        overlays = [ cargo2nix.overlays.default ];
 
         pkgs = import nixpkgs { inherit system overlays; };
 
-        rust = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" ];
+        rustPkgs = pkgs.rustBuilder.makePackageSet {
+          packageFun = import ./Cargo.nix;
+          rustVersion = "1.73.0";
         };
       in
       {
-        devShells.default = pkgs.mkShell {
-          buildInputs = [
+        devShells.default = rustPkgs.workspaceShell {
+          packages = [
             pkgs.libiconv
             pkgs.rust-analyzer
-            rust
           ];
         };
+
+        packages.default = (rustPkgs.workspace.mincha-minder { }).bin;
       });
 }
