@@ -4,7 +4,7 @@ use sunrise::sunrise_sunset;
 use tzf_rs::DefaultFinder;
 use tzfile::Tz;
 
-const DEFAULT_MINCHA_DURATION: i64 = 20;
+const DEFAULT_DURATION: i32 = 15;
 
 pub struct LatLong {
     lat: f64,
@@ -44,11 +44,6 @@ impl From<Sunset> for NaiveDateTime {
     }
 }
 
-struct MinchaTime<'sch> {
-    time: DateTime<Utc>,
-    sch: &'sch Schedule,
-}
-
 fn current_time() -> DateTime<Utc> {
     // Hack for test
     // @TODO instead of doing this, should be a date field in Schedule
@@ -64,63 +59,89 @@ fn current_time() -> DateTime<Utc> {
     Utc::now()
 }
 
-impl<'sch> MinchaTime<'sch> {
-    fn new(sch: &'sch Schedule, days_from_today: u32) -> Self {
-        let tz = sch.lat_long.as_tz();
+struct ShaahZemanis(f64);
 
-        let date =
-            current_time().with_timezone(&tz).date_naive() + Duration::days(days_from_today.into());
-
-        let sunset = Sunset::new(&sch.lat_long, date);
-
-        let time = (tz.from_utc_datetime(&sunset.into()) + Duration::minutes(sch.minutes.into()))
-            .with_timezone(&Utc);
-
-        Self { time, sch }
-    }
-
-    fn start(&self) -> DateTime<Utc> {
-        self.time
-    }
-
-    fn end(&self) -> DateTime<Utc> {
-        self.time + Duration::minutes(DEFAULT_MINCHA_DURATION)
-    }
-
-    fn alarm(&self) -> Duration {
-        Duration::minutes(self.sch.prep_time.into())
+impl ShaahZemanis {
+    fn new(hours: f64) -> Self {
+        Self(hours.min(12.0))
     }
 }
 
-impl From<MinchaTime<'_>> for Event {
-    fn from(mt: MinchaTime) -> Self {
+pub struct Time {
+    // Hours after daylight (should never be more than 12)
+    hours: ShaahZemanis,
+    // Clock minutes before (negative) or after (positive)
+    offset: i32,
+}
+
+pub struct Zeman {
+    time: Time,
+    name: &'static str,
+    prep_time: u32, // In minutes
+}
+
+impl Zeman {
+    fn time(&self) -> DateTime<Utc> {
+        // pass the current date in here somehow
+        // find duration between sunrise and sunset
+        // divide into 12
+        // multiply by time.hours
+        // add offset
+        todo!()
+    }
+
+    fn alarm_time(&self) -> Duration {
+        Duration::minutes(self.prep_time.into())
+    }
+
+    fn to_evt_for_date(self, date: DateTime<Utc>) -> Event {
         Event::new()
-            .summary("Mincha")
-            .starts(mt.start())
-            .ends(mt.end())
+            .summary(self.name)
+            .starts(self.time())
+            .ends(self.time() + DEFAULT_DURATION)
             .alarm(Alarm::display(
-                "Time for Mincha",
-                Trigger::before_start(mt.alarm()),
+                self.name,
+                Trigger::before_start(self.alarm_time()),
             ))
             .done()
     }
 }
 
 pub struct Schedule {
-    // Minutes before (negative) or after (positive) sunset
-    minutes: i32,
+    events: Vec<Zeman>,
     lat_long: LatLong,
-    prep_time: u32, // In minutes
+    date: DateTime<Utc>,
+    // Number of days to generate events for
+    days: u32,
 }
 
 impl Schedule {
-    pub fn new(minutes: i32, lat: f64, long: f64, prep_time: u32) -> Self {
+    pub fn new(lat: f64, long: f64) -> Self {
+        let lat_long = LatLong::new(lat, long);
         Self {
-            minutes,
-            lat_long: LatLong::new(lat, long),
-            prep_time,
+            lat_long,
+            events: vec![],
+            days: 90,
+            date: Utc::now().with_timezone(lat_long.tz),
         }
     }
+
+    pub fn with_date(mut self, date: DateTime<Utc>) -> Self {
+        self.date = date;
+        self
+    }
+
+    pub fn with_zemanim(mut self, events: impl IntoIterator<Item = Zeman>) -> Self {
+        self.events = events.into_iter().collect();
+        self
+    }
+
+    pub fn with_days(mut self, days: u32) -> Self {
+        self.days = days;
+        self
+    }
+
+    fn events_for_day(&self, day: u32) -> Vec<Event> {}
 
     pub fn to_ical(&self) -> String {
         Calendar::from(self).to_string()
@@ -129,11 +150,7 @@ impl Schedule {
 
 impl From<&Schedule> for Calendar {
     fn from(sch: &Schedule) -> Self {
-        let evts_iter = (0..90)
-            .map(|n| MinchaTime::new(sch, n))
-            // @todo exclude Friday and Shabbos
-            // .filter(|mt| ![Friday, Saturday].contains(mt.time.day))
-            .map(Event::from);
+        let evts_iter = (0..sch.days).flat_map(|n| sch.events_for_day(n));
 
         let mut cal = Calendar::new();
 
@@ -171,11 +188,15 @@ mod tests {
 
     #[test]
     fn generates_events_for_correct_times() {
-        let sch = Schedule {
-            lat_long: LatLong::new(43.73, -79.44), // North York, Ontario
-            minutes: 40,                           // 40 minutes after shkiyah in Bobov
-            prep_time: 5,
-        };
+        let sch = Schedule::new(43.73, -79.44) // North York, Ontario
+            .with_zemanim(vec![Zeman {
+                name: "Mincha",
+                time: Time {
+                    hours: ShaahZemanis::new(12.0), // Shkiyah
+                    offset: 40,                     // 40 minutes after shkiyah in Bobov
+                },
+                prep_time: 5,
+            }]);
         let tz = Tz::named("America/Toronto").unwrap();
 
         let cal = Calendar::from(&sch);
